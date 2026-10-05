@@ -1,36 +1,100 @@
-name: Publish NPM Package
+name: CI/CD & Publish
 
 on:
-  release:
-    types: [created]
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-publish:
+  test-and-build:
+    name: Test & Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
+          run_install: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
-          registry-url: 'https://registry.npmjs.org'
+          node-version: 20
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Typecheck
+        run: pnpm run typecheck
+
       - name: Run Tests
-        run: pnpm test
+        run: pnpm run test
 
       - name: Build SDK
-        run: pnpm build
+        run: pnpm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  publish:
+    name: Publish to NPM
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Check if version is already published
+        id: check_version
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+          if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version > /dev/null 2>&1; then
+            echo "Version ${PACKAGE_VERSION} of ${PACKAGE_NAME} is already published. Skipping."
+            echo "publish=false" >> $GITHUB_OUTPUT
+          else
+            echo "Version ${PACKAGE_VERSION} of ${PACKAGE_NAME} is not published yet."
+            echo "publish=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Publish to NPM
-        run: pnpm publish --access public
+        if: steps.check_version.outputs.publish == 'true'
+        run: pnpm publish --no-git-checks --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,10 +1,13 @@
 {
-  "name": "unified-payment-sdk",
+  "name": "unopay",
   "version": "1.0.0",
-  "description": "Unified Payment Gateway SDK",
+  "description": "Unified Payment Gateway SDK for Iranian IPGs",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "import": "./dist/index.js",
