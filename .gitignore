@@ -1,0 +1,12 @@
+.omc/
+.specify/
+specs/
+.opencode/
+.agents/
+
+# Node.js/TypeScript
+node_modules/
+dist/
+build/
+*.log
+.env*
