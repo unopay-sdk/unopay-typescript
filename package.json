@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Unified Payment Gateway SDK for Iranian IPGs",
   "type": "module",
+  "packageManager": "pnpm@10.5.2",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
