@@ -87,6 +87,47 @@ app.get('/api/payment/callback', async (req, res) => {
 
 ---
 
+## Testing against ipg-sandbox
+
+Every adapter points at any sandbox host via `baseUrl` — the ipg-sandbox stack
+(`../../ipg-sandbox/`, local compose or its cloud host) emulates Zarinpal, IDPay and
+Behpardakht (Mellat) so the full lifecycle runs without a real gateway.
+
+```typescript
+const base = process.env.UNOPAY_SANDBOX_URL!;           // e.g. http://localhost:8080
+const unopay = new UnoPay({
+  zarinpal: new ZarinpalAdapter({
+    merchantId: 'sandbox-merchant',
+    baseUrl: `${base}/zarinpal/pg`,
+    refundUrl: `${base}/zarinpal/payment/refund`,
+  }),
+  idpay: new IdpayAdapter({ apiKey: 'sandbox-key', baseUrl: `${base}/idpay/v1.1` }),
+  behpardakht: new BehpardakhtAdapter({
+    terminalId: '123456', username: 'sandbox', password: 'sandbox',
+    baseUrl: `${base}/behpardakht`,
+  }),
+});
+```
+
+- **Cloud host**: pass the `ipg_key_…` it issues as `sandboxApiKey` on any adapter — sent as
+  `Authorization: Bearer`, it scopes requests to that key's project.
+- **Force an outcome**: `scenario: 'approve' | 'decline' | 'timeout' | 'refund' | 'pending_settle' | 'verify_fail'`
+  sends `X-Sandbox-Scenario` on initiate. Without it the project's `default_scenario` decides.
+- **Refunds**: `await unopay.refund('zarinpal', { transactionId })` — available on all three
+  gateways.
+
+Run the integration suite (skip/strict/unreachable semantics, gateway preflight and the
+18-cell scenario matrix are all handled for you):
+
+```bash
+UNOPAY_SANDBOX_URL=http://localhost:8080 pnpm test   # unit + integration
+pnpm test:integration                                # integration only, strict mode
+```
+
+Full setup and validation guide: [`specs/002-ipg-sandbox-integration/quickstart.md`](specs/002-ipg-sandbox-integration/quickstart.md).
+
+---
+
 ## Observability & Structured Logging
 
 Optionally inject a logger (Pino, Winston, or `console`) to trace lifecycle events:
@@ -111,6 +152,9 @@ Lifecycle log events:
 - `payment_failed`
 - `verification_completed`
 - `verification_failed`
+- `refund_started`
+- `refund_completed`
+- `refund_failed`
 
 ---
 

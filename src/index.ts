@@ -5,3 +5,5 @@ export * from './currency.js';
 export * from './client.js';
 export * from './adapters/base.js';
 export * from './adapters/zarinpal.js';
+export * from './adapters/idpay.js';
+export * from './adapters/behpardakht.js';

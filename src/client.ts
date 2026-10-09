@@ -1,4 +1,11 @@
-import type { PaymentRequest, PaymentResult, VerificationResult, CallbackRequest } from './types.js';
+import type {
+  PaymentRequest,
+  PaymentResult,
+  VerificationResult,
+  CallbackRequest,
+  RefundRequest,
+  RefundResult,
+} from './types.js';
 import type { PaymentLogger } from './logger.js';
 import type { GatewayAdapter } from './adapters/base.js';
 import { PaymentError, GatewayProviderError } from './errors.js';
@@ -47,6 +54,28 @@ export class UnoPay<TGateways extends Record<string, GatewayAdapter>> {
       this.logger?.error('verification_failed', { provider, error });
       if (error instanceof PaymentError) throw error;
       throw new GatewayProviderError(`Verification failed for ${String(provider)}`, error);
+    }
+  }
+
+  async refund<K extends keyof TGateways>(
+    provider: K,
+    request: RefundRequest
+  ): Promise<RefundResult> {
+    const adapter = this.adapters[provider];
+    if (!adapter) {
+      throw new PaymentError(`Adapter for provider ${String(provider)} not found.`, 'ADAPTER_NOT_FOUND');
+    }
+
+    this.logger?.info('refund_started', { provider, request });
+
+    try {
+      const result = await adapter.refund(request);
+      this.logger?.info('refund_completed', { provider, result });
+      return result;
+    } catch (error) {
+      this.logger?.error('refund_failed', { provider, error });
+      if (error instanceof PaymentError) throw error;
+      throw new GatewayProviderError(`Refund failed for ${String(provider)}`, error);
     }
   }
 }
